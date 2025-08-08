@@ -1,6 +1,6 @@
 /// Home screen for the health data app.
 ///
-// Time-stamp: <Friday 2025-05-09 15:05:00 +1000 Graham Williams>
+// Time-stamp: <Friday 2025-08-08 08:29:55 +1000 Graham Williams>
 ///
 /// Copyright (C) 2024-2025, Software Innovation Institute, ANU.
 ///
@@ -25,6 +25,7 @@
 
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:markdown_tooltip/markdown_tooltip.dart';
@@ -70,13 +71,26 @@ final List<Map<String, dynamic>> homeTabs = [
     ''',
   },
   {
-    'title': 'New',
+    'title': 'View',
+    'icon': Icons.show_chart,
+    'color': null,
+    'content': const ChartTab(),
+    'tooltip': '''
+
+    **View:** Tap here to visualise your health data that is stored in your
+      pod. Your **blood pressure** observations will show trends over time and
+      other health metrics. Your **vaccinations** will be shown as a timeline.
+
+    ''',
+  },
+  {
+    'title': 'Add',
     'icon': Icons.assignment,
     'color': null,
     'content': const SurveyTab(),
     'tooltip': '''
 
-    **New:** Tap here to directly enter new data. This could be new observations
+    **Add:** Tap here to directly enter new data. This could be new observations
     of your **Blood Pressure** (systolic, diastolic, heart rate) or a new
     **Vaccination**. To upload new data from a *CSV* file vist the **Files**
     tab.
@@ -84,33 +98,20 @@ final List<Map<String, dynamic>> homeTabs = [
     ''',
   },
   {
-    'title': 'View',
-    'icon': Icons.show_chart,
-    'color': null,
-    'content': const ChartTab(),
-    'tooltip': '''
-
-    **Visuals:** Tap here to visualise your health data that is stored in your
-      pod. Your **blood pressure** observations will show trends over time and
-      other health metrics. Your **vaccinations** will be shown as a timeline.
-
-    ''',
-  },
-  {
-    'title': 'Edit',
+    'title': 'Data',
     'icon': Icons.table_chart,
     'color': null,
     'content': const TableTab(),
     'tooltip': '''
 
-    **Tables:** Tap here to view, modify, add, or remove your saved health data
+    **Data:** Tap here to view, modify, add, or remove your saved health data
       through a tabular form. All of your health data from your pod is
       accessible here.
 
     ''',
   },
   {
-    'title': 'Browse',
+    'title': 'Files',
     'icon': Icons.folder,
     'color': null,
     'content': const FileService(),
@@ -298,8 +299,9 @@ class HealthPodHomeState extends State<HealthPodHome> {
               ''',
               child: VersionWidget(
                 version: _appVersion,
-                changelogUrl:
-                    'https://github.com/anusii/healthpod/blob/dev/CHANGELOG.md',
+                changelogUrl: kIsWeb
+                    ? 'https://raw.githubusercontent.com/anusii/healthpod/refs/heads/dev/CHANGELOG.md'
+                    : 'https://github.com/anusii/healthpod/blob/dev/CHANGELOG.md',
                 showDate: true,
               ),
             ),
