@@ -1,7 +1,7 @@
 name: healthpod
 description: "Private and Secure Storage of Health data in your Solid Pod."
 publish_to: "none"
-version: 0.1.19+7
+version: 0.1.20+7
 
 environment:
   sdk: ">=3.2.3 <4.0.0"
@@ -32,7 +32,7 @@ dependencies:
   printing: ^5.11.0
   rdflib: ^0.2.9
   shared_preferences: ^2.5.2
-  solidpod: ^0.7.7
+  solidpod: ^0.7.9
   syncfusion_flutter_pdf: ^30.1.37
   table_calendar: ^3.0.9
   timeline_tile: ^2.0.0
