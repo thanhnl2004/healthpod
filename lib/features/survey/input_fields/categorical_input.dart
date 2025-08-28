@@ -132,7 +132,9 @@ class _HealthSurveyCategoricalInputState
       child: FormField<String>(
         initialValue: selectedValue,
         validator: (value) => HealthSurveyValidator.validateCategoricalInput(
-            value, widget.question),
+          value,
+          widget.question,
+        ),
         builder: (FormFieldState<String> field) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,8 +171,12 @@ class _HealthSurveyCategoricalInputState
 
   /// Builds a single radio button option with focus and selection handling.
 
-  Widget _buildOption(BuildContext context, FormFieldState<String> field,
-      String option, int optionIndex) {
+  Widget _buildOption(
+    BuildContext context,
+    FormFieldState<String> field,
+    String option,
+    int optionIndex,
+  ) {
     final theme = Theme.of(context);
     final isSelected = field.value == option;
 
@@ -226,7 +232,9 @@ class _HealthSurveyCategoricalInputState
                 children: [
                   Radio<String>(
                     value: option,
+                    // ignore: deprecated_member_use
                     groupValue: field.value,
+                    // ignore: deprecated_member_use
                     onChanged: (value) =>
                         _selectOption(field, value!, optionIndex),
                     focusNode: FocusNode(skipTraversal: true),
@@ -252,7 +260,10 @@ class _HealthSurveyCategoricalInputState
   /// Updates the selected option in both local state and form controller.
 
   void _selectOption(
-      FormFieldState<String> field, String option, int optionIndex) {
+    FormFieldState<String> field,
+    String option,
+    int optionIndex,
+  ) {
     setState(() {
       selectedValue = option;
     });

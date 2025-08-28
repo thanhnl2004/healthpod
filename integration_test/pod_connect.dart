@@ -76,16 +76,17 @@ void main() {
             '--no-sandbox', // Required for running in containers.
             '--headless', // Run browser in headless mode.
             '--disable-gpu', // Recommended for headless mode.
-            '--disable-dev-shm-usage' // Prevent crashes in containers.
-          ]
-        }
+            '--disable-dev-shm-usage', // Prevent crashes in containers.
+          ],
+        },
       };
 
       // Create WebDriver instance with configured capabilities.
 
       driver = await createDriver(
-          uri: Uri.parse('http://localhost:${TestConfig.chromeDriverPort}'),
-          desired: capabilities);
+        uri: Uri.parse('http://localhost:${TestConfig.chromeDriverPort}'),
+        desired: capabilities,
+      );
       Logger.info('✅ WebDriver initialized successfully');
     } catch (e, stackTrace) {
       // Log any setup failures and ensure cleanup.
@@ -147,12 +148,15 @@ void main() {
       // Handle consent page if it appears.
 
       try {
-        await waitFor(() async {
-          var consentButton =
-              await driver!.findElement(const By.id('consent-btn'));
-          await consentButton.click();
-          return true;
-        }, timeout: const Duration(seconds: 5));
+        await waitFor(
+          () async {
+            var consentButton =
+                await driver!.findElement(const By.id('consent-btn'));
+            await consentButton.click();
+            return true;
+          },
+          timeout: const Duration(seconds: 5),
+        );
         Logger.info('🛑 Handled consent page');
       } catch (e) {
         Logger.warn('✔️ No consent page found or already consented');
@@ -160,15 +164,19 @@ void main() {
 
       // Verify successful navigation to account page.
 
-      await waitFor(() async {
-        final currentUrl = await driver!.currentUrl;
-        Logger.info('🌍 Current URL: $currentUrl');
-        return currentUrl.contains('/.account/account');
-      }, timeout: TestConfig.timeout);
+      await waitFor(
+        () async {
+          final currentUrl = await driver!.currentUrl;
+          Logger.info('🌍 Current URL: $currentUrl');
+          return currentUrl.contains('/.account/account');
+        },
+        timeout: TestConfig.timeout,
+      );
       Logger.info('🎉 Reached account page');
 
       Logger.info(
-          '✅ Successfully authenticated and navigated to the account page!');
+        '✅ Successfully authenticated and navigated to the account page!',
+      );
     } catch (e, stackTrace) {
       // Log any test failures with stack trace.
 
