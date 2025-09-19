@@ -317,6 +317,36 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                 ),
               ),
 
+              // Button to show analytics
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.analytics, 
+                    color: theme.colorScheme.primary,
+                  ),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text('Summary!'),
+                          content: Text('Summary of your blood pressure data!'),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: Text('OK'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              
               // AHA Link Button.
 
               Padding(
