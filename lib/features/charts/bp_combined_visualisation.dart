@@ -38,6 +38,9 @@ import 'package:healthpod/utils/get_month_abbrev.dart';
 import 'package:healthpod/utils/parse_numeric_input.dart';
 import 'package:healthpod/utils/url_launcher_util.dart';
 
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+
 /// Combined blood pressure visualisation widget.
 ///
 /// A widget for visualising both systolic and diastolic blood pressure
@@ -317,29 +320,110 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                 ),
               ),
 
-              // Button to show analytics
+              // Summary button with file upload
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: IconButton(
                   icon: Icon(
-                    Icons.analytics, 
+                    Icons.analytics,
                     color: theme.colorScheme.primary,
                   ),
                   onPressed: () {
                     showDialog(
                       context: context,
                       builder: (BuildContext context) {
-                        return AlertDialog(
-                          title: Text('Summary!'),
-                          content: Text('Summary of your blood pressure data!'),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              child: Text('OK'),
-                            ),
-                          ],
+                        String fileContent = '';
+                        bool hasFileContent = false;
+
+                        return StatefulBuilder(
+                          builder: (context, setStateDialog) {
+                            return AlertDialog(
+                              title: Text('Blood Pressure Summary'),
+                              content: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Here\'s your personalized BP insights and trends summary!'),
+                                    SizedBox(height: 20),
+                                    
+                                    // File upload button
+                                    ElevatedButton.icon(
+                                      onPressed: () async {
+                                        try {
+                                          final result = await FilePicker.platform.pickFiles(
+                                            type: FileType.custom,
+                                            allowedExtensions: ['txt'],
+                                          );
+                                          
+                                          if (result != null && result.files.isNotEmpty) {
+                                            final file = result.files.first;
+                                            if (file.path != null) {
+                                              final fileData = File(file.path!);
+                                              final content = await fileData.readAsString();
+                                              
+                                              setStateDialog(() {
+                                                fileContent = content;
+                                                hasFileContent = true;
+                                              });
+                                            }
+                                          }
+                                        } catch (e) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Error reading file: $e')),
+                                          );
+                                        }
+                                      },
+                                      icon: Icon(Icons.upload_file),
+                                      label: Text('Upload TXT File'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: theme.colorScheme.secondary,
+                                        foregroundColor: theme.colorScheme.onSecondary,
+                                      ),
+                                    ),
+                                    
+                                    // File content display
+                                    if (hasFileContent) ...[
+                                      SizedBox(height: 20),
+                                      Text(
+                                        'File Content:',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                      SizedBox(height: 10),
+                                      Container(
+                                        width: double.maxFinite,
+                                        padding: EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.surfaceVariant,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: theme.colorScheme.outline,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          fileContent,
+                                          style: TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                            color: theme.colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: Text('Close'),
+                                ),
+                              ],
+                            );
+                          },
                         );
                       },
                     );
