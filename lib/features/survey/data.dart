@@ -115,6 +115,8 @@ class SurveyData {
 
       for (var fileName in resources.files) {
         if (!fileName.endsWith('.enc.ttl')) continue;
+        // Skip non-survey artifacts like the overall summary file
+        if (fileName == 'overall_summary.json.enc.ttl') continue;
 
         // Construct the full path including healthpod/data/blood_pressure.
 

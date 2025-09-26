@@ -38,8 +38,11 @@ import 'package:healthpod/utils/get_month_abbrev.dart';
 import 'package:healthpod/utils/parse_numeric_input.dart';
 import 'package:healthpod/utils/url_launcher_util.dart';
 
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'dart:convert';
+import 'package:solidpod/solidpod.dart' show SolidFunctionCallStatus, readPod;
+import 'package:healthpod/utils/upload_file_to_pod.dart';
+import 'package:healthpod/utils/security_key/central_key_manager.dart';
 
 /// Combined blood pressure visualisation widget.
 ///
@@ -97,6 +100,10 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _surveyData = [];
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading data: $e')),
         );
@@ -320,7 +327,7 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                 ),
               ),
 
-              // Summary button with file upload
+              // Summary button with file upload to the server
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: IconButton(
@@ -334,9 +341,85 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                       builder: (BuildContext context) {
                         String fileContent = '';
                         bool hasFileContent = false;
+                        bool isLoading = false;
+                        String? errorText;
+                        const String feature = 'blood_pressure';
+                        const String serverFileName =
+                            'overall_summary.json.enc.ttl';
+                        bool hasAttemptedInitialLoad = false;
+
+                        Future<void> loadFromServer(
+                          BuildContext dialogContext,
+                          void Function(void Function()) setStateDialog,
+                        ) async {
+                          if (!dialogContext.mounted) return;
+                          setStateDialog(() {
+                            isLoading = true;
+                            errorText = null;
+                          });
+
+                          try {
+                            // Check if security key is available
+                            await CentralKeyManager.instance.ensureSecurityKey(
+                              dialogContext,
+                              const Text(
+                                'Please enter your security key to access your health data',
+                              ),
+                            );
+
+                            if (!dialogContext.mounted) return;
+
+                            final content = await readPod(
+                              '$feature/$serverFileName',
+                              dialogContext,
+                              const Text('Loading summary'),
+                            );
+
+                            if (content == SolidFunctionCallStatus.fail.toString() ||
+                              content == SolidFunctionCallStatus.notLoggedIn.toString()) {
+                              throw Exception('Unable to read summary file');
+                            }
+
+                            String printable;
+                            try {
+                              final dynamic parsed = jsonDecode(content);
+                              printable = const JsonEncoder.withIndent('  ').convert(parsed);
+                            } catch (_) {
+                              printable = content.toString();
+                            }
+
+                            if (!dialogContext.mounted) return;
+                            setStateDialog(() {
+                              fileContent = printable;
+                              hasFileContent = true;
+                            });
+                          } catch (e) {
+                            if (dialogContext.mounted) {
+                              setStateDialog(() {
+                                errorText = 'Error loading from server: $e';
+                              });
+                            }
+                          } finally {
+                            if (dialogContext.mounted) {
+                              setStateDialog(() {
+                                isLoading = false;
+                              });
+                            }
+                          }
+                        }
 
                         return StatefulBuilder(
-                          builder: (context, setStateDialog) {
+                          builder: (dialogContext, setStateDialog) {
+                            // Load from server upon opening the dialog
+                            if (!hasAttemptedInitialLoad) {
+                              hasAttemptedInitialLoad = true;
+                              Future.microtask(
+                                () => loadFromServer(
+                                  dialogContext,
+                                  setStateDialog,
+                                ),
+                              );
+                            }
                             return AlertDialog(
                               title: Text('Blood Pressure Summary'),
                               content: SingleChildScrollView(
@@ -346,42 +429,135 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                   children: [
                                     Text('Here\'s your personalized BP insights and trends summary!'),
                                     SizedBox(height: 20),
-                                    
-                                    // File upload button
-                                    ElevatedButton.icon(
-                                      onPressed: () async {
-                                        try {
-                                          final result = await FilePicker.platform.pickFiles(
-                                            type: FileType.custom,
-                                            allowedExtensions: ['txt'],
-                                          );
-                                          
-                                          if (result != null && result.files.isNotEmpty) {
-                                            final file = result.files.first;
-                                            if (file.path != null) {
-                                              final fileData = File(file.path!);
-                                              final content = await fileData.readAsString();
-                                              
-                                              setStateDialog(() {
-                                                fileContent = content;
-                                                hasFileContent = true;
-                                              });
-                                            }
-                                          }
-                                        } catch (e) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Error reading file: $e')),
-                                          );
-                                        }
-                                      },
-                                      icon: Icon(Icons.upload_file),
-                                      label: Text('Upload TXT File'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: theme.colorScheme.secondary,
-                                        foregroundColor: theme.colorScheme.onSecondary,
-                                      ),
+                                    // Upload JSON and Load from Server
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            onPressed: () async {
+                                              try {
+                                                final result = await FilePicker
+                                                    .platform
+                                                    .pickFiles(
+                                                  type: FileType.custom,
+                                                  allowedExtensions: ['json'],
+                                                );
+
+                                                if (result != null && result.files.isNotEmpty) {
+                                                  final file = result.files.first;
+                                                  if (file.path != null) {
+                                                    // Upload selected JSON to the Pod under blood_pressure
+                                                    if (dialogContext.mounted) {
+                                                      setStateDialog(() {
+                                                        isLoading = true;
+                                                        errorText = null;
+                                                      });
+                                                    }
+
+                                                    final status =
+                                                        await uploadFileToPod(
+                                                      filePath: file.path!,
+                                                      targetPath: feature,
+                                                      context: dialogContext,
+                                                      customFileName:
+                                                          'overall_summary.json',
+                                                    );
+
+                                                    if (status ==
+                                                        SolidFunctionCallStatus
+                                                            .success) {
+                                                      // After upload, fetch and display from server
+                                                      await loadFromServer(
+                                                        dialogContext,
+                                                        setStateDialog,
+                                                      );
+                                                      if (dialogContext.mounted) {
+                                                        ScaffoldMessenger.of(
+                                                                dialogContext)
+                                                            .showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(
+                                                                'Summary uploaded and saved to server'),
+                                                            backgroundColor: Theme.of(
+                                                                    dialogContext)
+                                                                .colorScheme
+                                                                .tertiary,
+                                                          ),
+                                                        );
+                                                      }
+                                                    } else {
+                                                      if (dialogContext.mounted) {
+                                                        setStateDialog(() {
+                                                          errorText =
+                                                              'Upload failed - please check your connection and permissions';
+                                                        });
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              } catch (e) {
+                                                if (dialogContext.mounted) {
+                                                  ScaffoldMessenger.of(dialogContext)
+                                                      .showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                          'Error uploading file: $e'),
+                                                    ),
+                                                  );
+                                                }
+                                              } finally {
+                                                if (dialogContext.mounted) {
+                                                  setStateDialog(() {
+                                                    isLoading = false;
+                                                  });
+                                                }
+                                              }
+                                            },
+                                            icon: Icon(Icons.upload_file),
+                                            label: Text('Upload JSON & Save'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  theme.colorScheme.secondary,
+                                              foregroundColor: theme
+                                                  .colorScheme.onSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        ElevatedButton.icon(
+                                          onPressed: () => loadFromServer(
+                                              dialogContext, setStateDialog),
+                                          icon: Icon(Icons.cloud_download),
+                                          label: Text('Load from Server'),
+                                        ),
+                                      ],
                                     ),
-                                    
+
+                                    if (isLoading) ...[
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        children: [
+                                          const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child:
+                                                  CircularProgressIndicator(strokeWidth: 2)),
+                                          const SizedBox(width: 8),
+                                          Text('Working...'),
+                                        ],
+                                      ),
+                                    ],
+
+                                    if (errorText != null) ...[
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        errorText!,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.error,
+                                        ),
+                                      ),
+                                    ],
+
                                     // File content display
                                     if (hasFileContent) ...[
                                       SizedBox(height: 20),
@@ -406,7 +582,8 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                           style: TextStyle(
                                             fontFamily: 'monospace',
                                             fontSize: 12,
-                                            color: theme.colorScheme.onSurfaceVariant,
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant,
                                           ),
                                         ),
                                       ),
