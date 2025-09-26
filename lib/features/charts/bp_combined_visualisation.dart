@@ -427,11 +427,17 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Here\'s your personalized BP insights and trends summary!'),
+                                    Text('Here\'s the summary statistics across 10 patients'),
                                     SizedBox(height: 20),
                                     // Upload JSON and Load from Server
-                                    Row(
-                                      children: [
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: FractionallySizedBox(
+                                        widthFactor: 0.5,
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          children: [
                                         Expanded(
                                           child: ElevatedButton.icon(
                                             onPressed: () async {
@@ -454,42 +460,34 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                                       });
                                                     }
 
-                                                    final status =
-                                                        await uploadFileToPod(
+                                                    final status = await uploadFileToPod(
                                                       filePath: file.path!,
                                                       targetPath: feature,
                                                       context: dialogContext,
-                                                      customFileName:
-                                                          'overall_summary.json',
+                                                      customFileName: 'overall_summary.json',
                                                     );
 
-                                                    if (status ==
-                                                        SolidFunctionCallStatus
-                                                            .success) {
+                                                    if (status == SolidFunctionCallStatus.success) {
                                                       // After upload, fetch and display from server
                                                       await loadFromServer(
                                                         dialogContext,
                                                         setStateDialog,
                                                       );
                                                       if (dialogContext.mounted) {
-                                                        ScaffoldMessenger.of(
-                                                                dialogContext)
-                                                            .showSnackBar(
-                                                          SnackBar(
-                                                            content: Text(
-                                                                'Summary uploaded and saved to server'),
-                                                            backgroundColor: Theme.of(
-                                                                    dialogContext)
+                                                        ScaffoldMessenger.of(dialogContext)
+                                                          .showSnackBar(
+                                                            SnackBar(
+                                                              content: Text('Summary uploaded and saved to server'),
+                                                              backgroundColor: Theme.of(dialogContext)
                                                                 .colorScheme
                                                                 .tertiary,
-                                                          ),
-                                                        );
+                                                            ),
+                                                          );
                                                       }
                                                     } else {
                                                       if (dialogContext.mounted) {
                                                         setStateDialog(() {
-                                                          errorText =
-                                                              'Upload failed - please check your connection and permissions';
+                                                          errorText = 'Upload failed - please check your connection and permissions';
                                                         });
                                                       }
                                                     }
@@ -498,12 +496,11 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                               } catch (e) {
                                                 if (dialogContext.mounted) {
                                                   ScaffoldMessenger.of(dialogContext)
-                                                      .showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(
-                                                          'Error uploading file: $e'),
-                                                    ),
-                                                  );
+                                                    .showSnackBar(
+                                                      SnackBar(
+                                                        content: Text('Error uploading file: $e'),
+                                                      ),
+                                                    );
                                                 }
                                               } finally {
                                                 if (dialogContext.mounted) {
@@ -514,7 +511,7 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                               }
                                             },
                                             icon: Icon(Icons.upload_file),
-                                            label: Text('Upload JSON & Save'),
+                                            label: Text('Upload summary JSON data'),
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor:
                                                   theme.colorScheme.secondary,
@@ -524,13 +521,17 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                           ),
                                         ),
                                         const SizedBox(width: 12),
-                                        ElevatedButton.icon(
-                                          onPressed: () => loadFromServer(
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            onPressed: () => loadFromServer(
                                               dialogContext, setStateDialog),
-                                          icon: Icon(Icons.cloud_download),
-                                          label: Text('Load from Server'),
+                                            icon: Icon(Icons.cloud_download),
+                                            label: Text('Refetch data'),
+                                          ),
                                         ),
-                                      ],
+                                          ],
+                                        ),
+                                      ),
                                     ),
 
                                     if (isLoading) ...[
@@ -538,12 +539,12 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                       Row(
                                         children: [
                                           const SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child:
-                                                  CircularProgressIndicator(strokeWidth: 2)),
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2)
+                                          ),
                                           const SizedBox(width: 8),
-                                          Text('Working...'),
+                                          Text('Loading data...'),
                                         ],
                                       ),
                                     ],
@@ -582,8 +583,7 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                           style: TextStyle(
                                             fontFamily: 'monospace',
                                             fontSize: 12,
-                                            color: theme
-                                                .colorScheme.onSurfaceVariant,
+                                            color: theme.colorScheme.onSurfaceVariant,
                                           ),
                                         ),
                                       ),
