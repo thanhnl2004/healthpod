@@ -38,10 +38,8 @@ import 'package:healthpod/utils/get_month_abbrev.dart';
 import 'package:healthpod/utils/parse_numeric_input.dart';
 import 'package:healthpod/utils/url_launcher_util.dart';
 
-import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
 import 'package:solidpod/solidpod.dart' show SolidFunctionCallStatus, readPod;
-import 'package:healthpod/utils/upload_file_to_pod.dart';
 import 'package:healthpod/utils/security_key/central_key_manager.dart';
 
 /// Combined blood pressure visualisation widget.
@@ -369,14 +367,15 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
 
                             if (!dialogContext.mounted) return;
 
-                            final content = await readPod(
+                            String? content = await readPod(
                               '$feature/$serverFileName',
                               dialogContext,
                               const Text('Loading summary'),
                             );
 
-                            if (content == SolidFunctionCallStatus.fail.toString() ||
-                              content == SolidFunctionCallStatus.notLoggedIn.toString()) {
+                            if ( content == SolidFunctionCallStatus.fail.toString() 
+                              || content == SolidFunctionCallStatus.notLoggedIn.toString()
+                            ) {
                               throw Exception('Unable to read summary file');
                             }
 
@@ -385,7 +384,7 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                               final dynamic parsed = jsonDecode(content);
                               printable = const JsonEncoder.withIndent('  ').convert(parsed);
                             } catch (_) {
-                              printable = content.toString();
+                              throw Exception('Failed to read summary file');
                             }
 
                             if (!dialogContext.mounted) return;
@@ -429,107 +428,14 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                   children: [
                                     Text('Here\'s the summary statistics across 10 patients'),
                                     SizedBox(height: 20),
-                                    // Upload JSON and Load from Server
                                     Align(
                                       alignment: Alignment.centerLeft,
-                                      child: FractionallySizedBox(
-                                        widthFactor: 0.5,
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          crossAxisAlignment: CrossAxisAlignment.center,
-                                          children: [
-                                        Expanded(
-                                          child: ElevatedButton.icon(
-                                            onPressed: () async {
-                                              try {
-                                                final result = await FilePicker
-                                                    .platform
-                                                    .pickFiles(
-                                                  type: FileType.custom,
-                                                  allowedExtensions: ['json'],
-                                                );
-
-                                                if (result != null && result.files.isNotEmpty) {
-                                                  final file = result.files.first;
-                                                  if (file.path != null) {
-                                                    // Upload selected JSON to the Pod under blood_pressure
-                                                    if (dialogContext.mounted) {
-                                                      setStateDialog(() {
-                                                        isLoading = true;
-                                                        errorText = null;
-                                                      });
-                                                    }
-
-                                                    final status = await uploadFileToPod(
-                                                      filePath: file.path!,
-                                                      targetPath: feature,
-                                                      context: dialogContext,
-                                                      customFileName: 'overall_summary.json',
-                                                    );
-
-                                                    if (status == SolidFunctionCallStatus.success) {
-                                                      // After upload, fetch and display from server
-                                                      await loadFromServer(
-                                                        dialogContext,
-                                                        setStateDialog,
-                                                      );
-                                                      if (dialogContext.mounted) {
-                                                        ScaffoldMessenger.of(dialogContext)
-                                                          .showSnackBar(
-                                                            SnackBar(
-                                                              content: Text('Summary uploaded and saved to server'),
-                                                              backgroundColor: Theme.of(dialogContext)
-                                                                .colorScheme
-                                                                .tertiary,
-                                                            ),
-                                                          );
-                                                      }
-                                                    } else {
-                                                      if (dialogContext.mounted) {
-                                                        setStateDialog(() {
-                                                          errorText = 'Upload failed - please check your connection and permissions';
-                                                        });
-                                                      }
-                                                    }
-                                                  }
-                                                }
-                                              } catch (e) {
-                                                if (dialogContext.mounted) {
-                                                  ScaffoldMessenger.of(dialogContext)
-                                                    .showSnackBar(
-                                                      SnackBar(
-                                                        content: Text('Error uploading file: $e'),
-                                                      ),
-                                                    );
-                                                }
-                                              } finally {
-                                                if (dialogContext.mounted) {
-                                                  setStateDialog(() {
-                                                    isLoading = false;
-                                                  });
-                                                }
-                                              }
-                                            },
-                                            icon: Icon(Icons.upload_file),
-                                            label: Text('Upload summary JSON data'),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  theme.colorScheme.secondary,
-                                              foregroundColor: theme
-                                                  .colorScheme.onSecondary,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: ElevatedButton.icon(
-                                            onPressed: () => loadFromServer(
-                                              dialogContext, setStateDialog),
-                                            icon: Icon(Icons.cloud_download),
-                                            label: Text('Refetch data'),
-                                          ),
-                                        ),
-                                          ],
+                                      child: SizedBox(
+                                        width: 200,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () => loadFromServer(dialogContext, setStateDialog),
+                                          icon: Icon(Icons.cloud_download),
+                                          label: Text('Refetch data'),
                                         ),
                                       ),
                                     ),
@@ -541,7 +447,7 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                           const SizedBox(
                                             width: 16,
                                             height: 16,
-                                            child: CircularProgressIndicator(strokeWidth: 2)
+                                            child: CircularProgressIndicator(strokeWidth: 2),
                                           ),
                                           const SizedBox(width: 8),
                                           Text('Loading data...'),
