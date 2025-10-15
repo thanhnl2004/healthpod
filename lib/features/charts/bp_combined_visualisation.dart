@@ -337,7 +337,7 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                     showDialog(
                       context: context,
                       builder: (BuildContext context) {
-                        String fileContent = '';
+                        Map<String, dynamic>? summaryData;
                         bool hasFileContent = false;
                         bool isLoading = false;
                         String? errorText;
@@ -379,17 +379,16 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                               throw Exception('Unable to read summary file');
                             }
 
-                            String printable;
+                            Map<String, dynamic> parsed;
                             try {
-                              final dynamic parsed = jsonDecode(content);
-                              printable = const JsonEncoder.withIndent('  ').convert(parsed);
+                              parsed = jsonDecode(content) as Map<String, dynamic>;
                             } catch (_) {
-                              throw Exception('Failed to read summary file');
+                              throw Exception('Failed to parse summary file');
                             }
 
                             if (!dialogContext.mounted) return;
                             setStateDialog(() {
-                              fileContent = printable;
+                              summaryData = parsed;
                               hasFileContent = true;
                             });
                           } catch (e) {
@@ -465,34 +464,10 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                       ),
                                     ],
 
-                                    // File content display
-                                    if (hasFileContent) ...[
+                                    // Display formatted summary data
+                                    if (hasFileContent && summaryData != null) ...[
                                       SizedBox(height: 20),
-                                      Text(
-                                        'File Content:',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                      ),
-                                      SizedBox(height: 10),
-                                      Container(
-                                        width: double.maxFinite,
-                                        padding: EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: theme.colorScheme.surfaceVariant,
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: theme.colorScheme.outline,
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          fileContent,
-                                          style: TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
-                                            color: theme.colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ),
+                                      _buildSummaryContent(summaryData!),
                                     ],
                                   ],
                                 ),
@@ -1055,5 +1030,228 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
         ],
       ),
     );
+  }
+
+  /// Builds a formatted display of the summary statistics
+  Widget _buildSummaryContent(Map<String, dynamic> data) {
+    final aggStats = data['aggregated_statistics'] as Map<String, dynamic>?;
+    if (aggStats == null) {
+      return Text('No summary data available');
+    }
+
+    final totalPatients = aggStats['total_patients'] ?? 'N/A';
+    final totalObservations = aggStats['total_observations'] ?? 'N/A';
+    final systolic = aggStats['systolic'] as Map<String, dynamic>?;
+    final diastolic = aggStats['diastolic'] as Map<String, dynamic>?;
+    final heartRate = aggStats['heart_rate'] as Map<String, dynamic>?;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Overview card
+        Card(
+          elevation: 2,
+          color: theme.colorScheme.primaryContainer,
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Overview',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 12),
+                _buildStatRow('Total Patients', totalPatients.toString(), textColor: Colors.white),
+                SizedBox(height: 8),
+                _buildStatRow('Total Observations', totalObservations.toString(), textColor: Colors.white),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(height: 12),
+
+        // Systolic statistics
+        if (systolic != null) ...[
+          Text(
+            'Systolic Blood Pressure',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 8),
+          Card(
+            elevation: 1,
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  _buildStatGrid(systolic),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 12),
+        ],
+
+        // Diastolic statistics
+        if (diastolic != null) ...[
+          Text(
+            'Diastolic Blood Pressure',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 8),
+          Card(
+            elevation: 1,
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  _buildStatGrid(diastolic),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 12),
+        ],
+
+        // Heart rate statistics
+        if (heartRate != null) ...[
+          Text(
+            'Heart Rate',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 8),
+          Card(
+            elevation: 1,
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  _buildStatGrid(heartRate),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // Builds a single stat row with label and value
+  Widget _buildStatRow(String label, String value, {Color? textColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: textColor,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: textColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Builds a grid of statistics from a map
+  Widget _buildStatGrid(Map<String, dynamic> stats) {
+    final entries = stats.entries.toList();
+    
+    return Column(
+      children: [
+        for (int i = 0; i < entries.length; i += 2)
+          Padding(
+            padding: EdgeInsets.only(bottom: i < entries.length - 2 ? 12 : 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
+                    _formatStatLabel(entries[i].key),
+                    _formatStatValue(entries[i].value),
+                  ),
+                ),
+                if (i + 1 < entries.length) ...[
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: _buildStatItem(
+                      _formatStatLabel(entries[i + 1].key),
+                      _formatStatValue(entries[i + 1].value),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  // Builds a single stat item
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Formats a stat label for display
+  String _formatStatLabel(String key) {
+    switch (key) {
+      case 'mean':
+        return 'Mean';
+      case 'median':
+        return 'Median';
+      case 'std':
+        return 'Std Dev';
+      case 'min':
+        return 'Minimum';
+      case 'max':
+        return 'Maximum';
+      case 'range':
+        return 'Range';
+      default:
+        return key[0].toUpperCase() + key.substring(1);
+    }
+  }
+
+  // Formats a stat value for display
+  String _formatStatValue(dynamic value) {
+    if (value is num) {
+      return value.toStringAsFixed(1);
+    }
+    return value.toString();
   }
 }
