@@ -282,6 +282,7 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
 
       final metricInfo = _getMetricInfo(metricType);
       final unit = metricInfo['unit']!;
+      final labels = ['Mean', 'Median', 'Min', 'Max'];
 
       return BarChart(
         BarChartData(
@@ -294,13 +295,13 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
               getTooltipColor: (group) => theme.colorScheme.surfaceContainerHighest,
               tooltipBorder: BorderSide(
                 color: theme.colorScheme.outline,
-                width: 1,
+                width: 2,
               ),
               tooltipPadding: const EdgeInsets.all(8),
               tooltipMargin: 8,
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
                 final label = rodIndex == 0 ? 'All Patients' : 'You';
-                final statType = ['Mean', 'Median', 'Min', 'Max'][groupIndex];
+                final statType = labels[groupIndex];
                 return BarTooltipItem(
                   '$label\n$statType: ${rod.toY.toStringAsFixed(1)} $unit',
                   TextStyle(
@@ -319,7 +320,6 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                 showTitles: true,
                 reservedSize: 30,
                 getTitlesWidget: (value, meta) {
-                  const labels = ['Mean', 'Median', 'Min', 'Max'];
                   if (value.toInt() >= 0 && value.toInt() < labels.length) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8.0),
@@ -613,17 +613,18 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                             return AlertDialog(
                               title: Text('Blood Pressure Summary'),
                               content: SizedBox(
-                                width: 600,
-                                height: 500,
+                                width: 800,
+                                height: 520,
                                 child: SingleChildScrollView(
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text('Here\'s the summary statistics across 10 patients'),
-                                      SizedBox(height: 20),
-                                      Align(
+                                      SizedBox(height: 16),
+                                      Container(
                                         alignment: Alignment.centerLeft,
+                                        margin: EdgeInsets.only(bottom: 16),
                                         child: SizedBox(
                                           width: 200,
                                           child: ElevatedButton.icon(
