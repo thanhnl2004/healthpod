@@ -299,6 +299,9 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
               ),
               tooltipPadding: const EdgeInsets.all(8),
               tooltipMargin: 8,
+              fitInsideHorizontally: true,
+              fitInsideVertically: true,
+              direction: TooltipDirection.auto,
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
                 final label = rodIndex == 0 ? 'All Patients' : 'You';
                 final statType = labels[groupIndex];
