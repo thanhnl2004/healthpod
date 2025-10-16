@@ -212,6 +212,159 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
     ];
   }
 
+  /// Builds a bar chart comparing patient statistics with aggregated statistics.
+  Widget _buildComparisonBarChart(Map<String, dynamic> data, ThemeData theme) {
+    try {
+      final aggregatedSystolic = data['aggregated_statistics']?['systolic'];
+      final patientSystolic = data['patient_statistics']?['systolic'];
+
+      if (aggregatedSystolic == null || patientSystolic == null) {
+        return Center(
+          child: Text('Unable to load statistics data'),
+        );
+      }
+
+      // Extract values
+      final aggregatedSystolicMean = (aggregatedSystolic['mean'] as num?)?.toDouble() ?? 0;
+      final aggregatedSystolicMedian = (aggregatedSystolic['median'] as num?)?.toDouble() ?? 0;
+      final aggregatedSystolicMin = (aggregatedSystolic['min'] as num?)?.toDouble() ?? 0;
+      final aggregatedSystolicMax = (aggregatedSystolic['max'] as num?)?.toDouble() ?? 0;
+
+      final patientSystolicMean = (patientSystolic['mean'] as num?)?.toDouble() ?? 0;
+      final patientSystolicMedian = (patientSystolic['median'] as num?)?.toDouble() ?? 0;
+      final patientSystolicMin = (patientSystolic['min'] as num?)?.toDouble() ?? 0;
+      final patientSystolicMax = (patientSystolic['max'] as num?)?.toDouble() ?? 0;
+
+      // BarChartGroupData helper function
+      BarChartGroupData createBarGroup(
+        int index,
+        double aggregatedValue,
+        double patientValue,
+        ThemeData theme,
+      ) {
+        return BarChartGroupData(
+          x: index,
+          barRods: [
+            BarChartRodData(
+              toY: aggregatedValue,
+              color: theme.colorScheme.primary.withValues(alpha: 0.7),
+              width: 20,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            BarChartRodData(
+              toY: patientValue,
+              color: theme.colorScheme.secondary,
+              width: 20,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ],
+        );
+      }
+
+      return BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          maxY: 220,
+          minY: 0,
+          barTouchData: BarTouchData(
+            enabled: true,
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipColor: (group) => theme.colorScheme.surfaceContainerHighest,
+              tooltipBorder: BorderSide(
+                color: theme.colorScheme.outline,
+                width: 1,
+              ),
+              tooltipPadding: const EdgeInsets.all(8),
+              tooltipMargin: 8,
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                final label = rodIndex == 0 ? 'All Patients' : 'You';
+                final statType = ['Mean', 'Median', 'Min', 'Max'][groupIndex];
+                return BarTooltipItem(
+                  '$label\n$statType: ${rod.toY.toStringAsFixed(1)} mmHg',
+                  TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                );
+              },
+            ),
+          ),
+          titlesData: FlTitlesData(
+            show: true,
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 30,
+                getTitlesWidget: (value, meta) {
+                  const labels = ['Mean', 'Median', 'Min', 'Max'];
+                  if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        labels[value.toInt()],
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
+                  }
+                  return const Text('');
+                },
+              ),
+            ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                interval: 20,
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                    value.toInt().toString(),
+                    style: theme.textTheme.bodySmall,
+                  );
+                },
+              ),
+            ),
+            topTitles: AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+          ),
+          gridData: FlGridData(
+            show: true,
+            drawHorizontalLine: true,
+            drawVerticalLine: false,
+            horizontalInterval: 20,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: theme.colorScheme.outline.withValues(alpha: 0.2),
+              );
+            },
+          ),
+          borderData: FlBorderData(
+            show: false,
+            border: Border.all(
+              color: theme.colorScheme.outline.withValues(alpha: 0.3),
+            ),
+          ),
+          barGroups: [
+            createBarGroup(0, aggregatedSystolicMean, patientSystolicMean, theme),
+            createBarGroup(1, aggregatedSystolicMedian, patientSystolicMedian, theme),
+            createBarGroup(2, aggregatedSystolicMin, patientSystolicMin, theme),
+            createBarGroup(3, aggregatedSystolicMax, patientSystolicMax, theme),
+          ],
+        ),
+      );
+    } catch (e) {
+      return Center(
+        child: Text('Error building chart: $e'),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -419,82 +572,125 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                 ),
                               );
                             }
+
+                            // Parse JSON data for chart
+                            Map<String, dynamic>? parsedData;
+                            if (hasFileContent && fileContent.isNotEmpty) {
+                              try {
+                                parsedData = jsonDecode(fileContent);
+                              } catch (e) {
+                                parsedData = null;
+                              }
+                            }
+
                             return AlertDialog(
                               title: Text('Blood Pressure Summary'),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Here\'s the summary statistics across 10 patients'),
-                                    SizedBox(height: 20),
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: SizedBox(
-                                        width: 200,
-                                        child: ElevatedButton.icon(
-                                          onPressed: () => loadFromServer(dialogContext, setStateDialog),
-                                          icon: Icon(Icons.cloud_download),
-                                          label: Text('Refetch data'),
-                                        ),
-                                      ),
-                                    ),
-
-                                    if (isLoading) ...[
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        children: [
-                                          const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text('Loading data...'),
-                                        ],
-                                      ),
-                                    ],
-
-                                    if (errorText != null) ...[
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        errorText!,
-                                        style: TextStyle(
-                                          color: theme.colorScheme.error,
-                                        ),
-                                      ),
-                                    ],
-
-                                    // File content display
-                                    if (hasFileContent) ...[
+                              content: SizedBox(
+                                width: 600,
+                                height: 500,
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Here\'s the summary statistics across 10 patients'),
                                       SizedBox(height: 20),
-                                      Text(
-                                        'File Content:',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                      ),
-                                      SizedBox(height: 10),
-                                      Container(
-                                        width: double.maxFinite,
-                                        padding: EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: theme.colorScheme.surfaceVariant,
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: theme.colorScheme.outline,
-                                            width: 1,
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: SizedBox(
+                                          width: 200,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () => loadFromServer(dialogContext, setStateDialog),
+                                            icon: Icon(Icons.cloud_download),
+                                            label: Text('Refetch data'),
                                           ),
                                         ),
-                                        child: Text(
-                                          fileContent,
+                                      ),
+
+                                      if (isLoading) ...[
+                                        const SizedBox(height: 16),
+                                        Row(
+                                          children: [
+                                            const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text('Loading data...'),
+                                          ],
+                                        ),
+                                      ],
+
+                                      if (errorText != null) ...[
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          errorText!,
                                           style: TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
-                                            color: theme.colorScheme.onSurfaceVariant,
+                                            color: theme.colorScheme.error,
                                           ),
                                         ),
-                                      ),
+                                      ],
+
+                                      // Bar chart display
+                                      if (hasFileContent && parsedData != null) ...[
+                                        SizedBox(height: 20),
+                                        Text(
+                                          'Systolic Blood Pressure Comparison',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        ),
+                                        SizedBox(height: 10),
+                                        Container(
+                                          height: 350,
+                                          padding: EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: theme.colorScheme.surface,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: theme.colorScheme.outline,
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: _buildComparisonBarChart(parsedData, theme),
+                                        ),
+                                        SizedBox(height: 12),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 16,
+                                                  height: 16,
+                                                  decoration: BoxDecoration(
+                                                    color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                ),
+                                                SizedBox(width: 8),
+                                                Text('All Patients'),
+                                              ],
+                                            ),
+                                            SizedBox(width: 24),
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 16,
+                                                  height: 16,
+                                                  decoration: BoxDecoration(
+                                                    color: theme.colorScheme.secondary,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                ),
+                                                SizedBox(width: 8),
+                                                Text('You'),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
                               actions: [
