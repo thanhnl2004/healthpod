@@ -212,28 +212,47 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
     ];
   }
 
-  /// Builds a bar chart comparing patient statistics with aggregated statistics.
-  Widget _buildComparisonBarChart(Map<String, dynamic> data, ThemeData theme) {
-    try {
-      final aggregatedSystolic = data['aggregated_statistics']?['systolic'];
-      final patientSystolic = data['patient_statistics']?['systolic'];
+  /// Gets the display title and unit for a given metric type.
+  Map<String, String> _getMetricInfo(String metricType) {
+    switch (metricType) {
+      case 'systolic':
+        return {'title': 'Systolic Blood Pressure', 'unit': 'mmHg'};
+      case 'diastolic':
+        return {'title': 'Diastolic Blood Pressure', 'unit': 'mmHg'};
+      case 'heart_rate':
+        return {'title': 'Heart Rate', 'unit': 'bpm'};
+      default:
+        return {'title': metricType, 'unit': ''};
+    }
+  }
 
-      if (aggregatedSystolic == null || patientSystolic == null) {
+  /// Builds a bar chart comparing patient statistics with aggregated statistics.
+  /// metricType can be 'systolic', 'diastolic', or 'heart_rate'
+  Widget _buildComparisonBarChart(
+    Map<String, dynamic> data,
+    ThemeData theme,
+    String metricType,
+  ) {
+    try {
+      final aggregatedMetric = data['aggregated_statistics']?[metricType];
+      final patientMetric = data['patient_statistics']?[metricType];
+
+      if (aggregatedMetric == null || patientMetric == null) {
         return Center(
-          child: Text('Unable to load statistics data'),
+          child: Text('Unable to load $metricType statistics data'),
         );
       }
 
       // Extract values
-      final aggregatedSystolicMean = (aggregatedSystolic['mean'] as num?)?.toDouble() ?? 0;
-      final aggregatedSystolicMedian = (aggregatedSystolic['median'] as num?)?.toDouble() ?? 0;
-      final aggregatedSystolicMin = (aggregatedSystolic['min'] as num?)?.toDouble() ?? 0;
-      final aggregatedSystolicMax = (aggregatedSystolic['max'] as num?)?.toDouble() ?? 0;
+      final aggregatedMean = (aggregatedMetric['mean'] as num?)?.toDouble() ?? 0;
+      final aggregatedMedian = (aggregatedMetric['median'] as num?)?.toDouble() ?? 0;
+      final aggregatedMin = (aggregatedMetric['min'] as num?)?.toDouble() ?? 0;
+      final aggregatedMax = (aggregatedMetric['max'] as num?)?.toDouble() ?? 0;
 
-      final patientSystolicMean = (patientSystolic['mean'] as num?)?.toDouble() ?? 0;
-      final patientSystolicMedian = (patientSystolic['median'] as num?)?.toDouble() ?? 0;
-      final patientSystolicMin = (patientSystolic['min'] as num?)?.toDouble() ?? 0;
-      final patientSystolicMax = (patientSystolic['max'] as num?)?.toDouble() ?? 0;
+      final patientMean = (patientMetric['mean'] as num?)?.toDouble() ?? 0;
+      final patientMedian = (patientMetric['median'] as num?)?.toDouble() ?? 0;
+      final patientMin = (patientMetric['min'] as num?)?.toDouble() ?? 0;
+      final patientMax = (patientMetric['max'] as num?)?.toDouble() ?? 0;
 
       // BarChartGroupData helper function
       BarChartGroupData createBarGroup(
@@ -261,6 +280,9 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
         );
       }
 
+      final metricInfo = _getMetricInfo(metricType);
+      final unit = metricInfo['unit']!;
+
       return BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
@@ -280,7 +302,7 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                 final label = rodIndex == 0 ? 'All Patients' : 'You';
                 final statType = ['Mean', 'Median', 'Min', 'Max'][groupIndex];
                 return BarTooltipItem(
-                  '$label\n$statType: ${rod.toY.toStringAsFixed(1)} mmHg',
+                  '$label\n$statType: ${rod.toY.toStringAsFixed(1)} $unit',
                   TextStyle(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
@@ -350,12 +372,12 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
               color: theme.colorScheme.outline.withValues(alpha: 0.3),
             ),
           ),
-          barGroups: [
-            createBarGroup(0, aggregatedSystolicMean, patientSystolicMean, theme),
-            createBarGroup(1, aggregatedSystolicMedian, patientSystolicMedian, theme),
-            createBarGroup(2, aggregatedSystolicMin, patientSystolicMin, theme),
-            createBarGroup(3, aggregatedSystolicMax, patientSystolicMax, theme),
-          ],
+            barGroups: [
+              createBarGroup(0, aggregatedMean, patientMean, theme),
+              createBarGroup(1, aggregatedMedian, patientMedian, theme),
+              createBarGroup(2, aggregatedMin, patientMin, theme),
+              createBarGroup(3, aggregatedMax, patientMax, theme),
+            ],
         ),
       );
     } catch (e) {
@@ -498,6 +520,11 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                         const String serverFileName =
                             'overall_summary.json.enc.ttl';
                         bool hasAttemptedInitialLoad = false;
+                        
+                        // PageView controller for carousel
+                        final pageController = PageController(initialPage: 0);
+                        int currentPage = 0;
+                        final metrics = ['systolic', 'diastolic', 'heart_rate'];
 
                         Future<void> loadFromServer(
                           BuildContext dialogContext,
@@ -632,28 +659,95 @@ class _BPCombinedVisualisationState extends State<BPCombinedVisualisation> {
                                         ),
                                       ],
 
-                                      // Bar chart display
+                                      // Bar chart carousel display
                                       if (hasFileContent && parsedData != null) ...[
-                                        SizedBox(height: 20),
-                                        Text(
-                                          'Systolic Blood Pressure Comparison',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                        ),
-                                        SizedBox(height: 10),
-                                        Container(
-                                          height: 350,
-                                          padding: EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            color: theme.colorScheme.surface,
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(
-                                              color: theme.colorScheme.outline,
-                                              width: 1,
+                                        // Navigation arrows and title
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(Icons.arrow_back_ios),
+                                              onPressed: currentPage > 0
+                                                ? () {
+                                                    pageController.previousPage(
+                                                      duration: Duration(milliseconds: 300),
+                                                      curve: Curves.easeInOut,
+                                                    );
+                                                  }: null,
                                             ),
-                                          ),
-                                          child: _buildComparisonBarChart(parsedData, theme),
+                                            Expanded(
+                                              child: Column(
+                                                children: [
+                                                  Text(
+                                                    _getMetricInfo(metrics[currentPage])['title']!,
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 16,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                  SizedBox(height: 4),
+                                                  Text(
+                                                    '${currentPage + 1} of ${metrics.length}',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: theme.colorScheme.onSurfaceVariant,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: Icon(Icons.arrow_forward_ios),
+                                              onPressed: currentPage < metrics.length - 1
+                                                ? () {
+                                                    pageController.nextPage(
+                                                      duration: Duration(milliseconds: 300),
+                                                      curve: Curves.easeInOut,
+                                                    );
+                                                  }
+                                                : null,
+                                            ),
+                                          ],
                                         ),
+                                        
+                                        SizedBox(height: 10),
+                                        
+                                        // PageView carousel
+                                        SizedBox(
+                                          height: 350,
+                                          child: PageView.builder(
+                                            controller: pageController,
+                                            onPageChanged: (index) {
+                                              setStateDialog(() {
+                                                currentPage = index;
+                                              });
+                                            },
+                                            itemCount: metrics.length,
+                                            itemBuilder: (context, index) {
+                                              return Container(
+                                                padding: EdgeInsets.all(16),
+                                                decoration: BoxDecoration(
+                                                  color: theme.colorScheme.surface,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: theme.colorScheme.outline,
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                child: _buildComparisonBarChart(
+                                                  parsedData!,
+                                                  theme,
+                                                  metrics[index],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                        
                                         SizedBox(height: 12),
+                                        
+                                        // Legend
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
